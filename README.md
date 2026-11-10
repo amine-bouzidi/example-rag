@@ -1,99 +1,122 @@
-# Story RAG API
+# Fragrance RAG API
 
-Pose des questions sur une histoire pour enfants (`story.txt`) via une API FastAPI.
-Les passages pertinents sont retrouvés dans une base vectorielle (ChromaDB), puis un
-LLM Ollama rédige la réponse.
+API de recherche et de questions-réponses sur les briefs clients et les données
+métier de parfumerie. PostgreSQL est la source de vérité ; ChromaDB conserve
+l'index vectoriel des documents préparés à partir des tables PostgreSQL. Ollama
+calcule les embeddings et génère les réponses.
 
-## Fichiers du projet
+## Architecture
 
-| Fichier            | Rôle |
-|--------------------|------|
-| `story.txt`        | L'histoire pour enfants, source des réponses. Le titre est sur la première ligne, les chapitres commencent par « Chapitre N : … » ou « I. … ». |
-| `ingest.py`        | Charge l'histoire dans la base : découpe le texte par chapitre en morceaux d'environ 800 caractères, calcule leurs embeddings avec Ollama et les enregistre dans ChromaDB. Peut être relancé sans créer de doublons. Accepte un autre fichier en argument : `python ingest.py autre.txt`. |
-| `clean.py`         | Vide la base (supprime la collection ChromaDB), pour recharger l'histoire ou changer de modèle d'embeddings. |
-| `api.py`           | L'API FastAPI avec son Swagger : retrouve les passages proches de la question, puis demande au LLM d'y répondre simplement, comme à un enfant. Contient aussi le prompt système. |
-| `list.py`          | Affiche le contenu de la base : modèle d'embeddings utilisé, nombre de morceaux, puis chaque morceau (identifiant, taille, aperçu du texte) groupé par chapitre. Avec `--full`, affiche le texte complet. |
-| `rag.py`           | Code partagé par les scripts : connexion à ChromaDB, calcul des embeddings et appel du LLM via Ollama. |
-| `config.py`        | Tous les réglages (modèles, chemins, taille des morceaux, nombre de passages), modifiables par variables d'environnement. |
-| `requirements.txt` | Dépendances Python : FastAPI, Uvicorn, Ollama, ChromaDB. |
-| `.gitignore`       | Exclut de git le venv, la base `chroma_db/`, les caches Python et les fichiers locaux. |
-| `chroma_db/`       | Base vectorielle créée par `ingest.py` (non versionnée). |
+- `ingest.py` lit les tables métier de PostgreSQL, crée des documents descriptifs,
+  calcule leurs embeddings et les synchronise dans ChromaDB.
+- `rag.py` partage les clients ChromaDB et Ollama, ainsi que les fonctions
+  d'embedding et de génération.
+- `api.py` expose `/health`, `/search` et `/ask`. Les sources retournées indiquent
+  leur type, leur identifiant et si elles sont synthétiques.
+- `list.py` affiche les documents indexés ; `clean.py` supprime la collection
+  ChromaDB.
+
+Les briefs, parfums, tendances, règles de marché, dosages, champs de brief,
+évaluations, taxonomie des besoins et vocabulaires sont indexés. Les tables
+relationnelles associées (catégories, arômes, facettes, certifications et marchés)
+sont réunies dans le document de leur entité.
+
+La recherche vectorielle sert à retrouver des informations sémantiquement
+pertinentes. Pour une sélection nécessitant des filtres exacts (par exemple une
+fourchette de budget, un marché ou un dosage), il faudra compléter le RAG par des
+requêtes SQL structurées.
+
+## Prérequis
+
+- Python 3.10+
+- PostgreSQL local, avec le schéma métier créé et des données chargées
+- [Ollama](https://ollama.com) démarré localement
 
 ## Installation
 
-Prérequis : Python 3.10+ et [Ollama](https://ollama.com) lancé en local.
-
-### 1. Créer et activer un environnement virtuel
-
-```bash
-python -m venv .venv
-```
-
-Puis l'activer selon votre terminal :
-
-| Terminal                  | Commande                          |
-|---------------------------|-----------------------------------|
-| Windows PowerShell        | `.venv\Scripts\Activate.ps1`      |
-| Windows cmd               | `.venv\Scripts\activate.bat`      |
-| Git Bash (Windows)        | `source .venv/Scripts/activate`   |
-| macOS / Linux             | `source .venv/bin/activate`       |
-
-Si PowerShell refuse d'exécuter le script d'activation, autorisez-le pour votre
-utilisateur une fois pour toutes :
+Créer et activer un environnement virtuel sous Windows PowerShell :
 
 ```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-Le nom `(.venv)` apparaît alors au début de l'invite. Pour sortir du venv : `deactivate`.
-
-### 2. Installer les dépendances
-
-```bash
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-### 3. Télécharger les modèles Ollama
+Télécharger les modèles par défaut :
 
-```bash
-ollama pull nomic-embed-text   # modèle d'embeddings
-ollama pull qwen2.5:1.5b         # LLM (ou un autre, voir Configuration)
+```powershell
+ollama pull nomic-embed-text
+ollama pull qwen2.5:1.5b
 ```
 
-## Utilisation
+`qwen2.5:1.5b` est le modèle LLM initial ; il pourra être comparé à d'autres
+modèles lors du benchmark. `nomic-embed-text` est le modèle d'embeddings et n'est
+pas un LLM de génération.
 
-```bash
-python ingest.py        # charge story.txt dans la base (chroma_db/)
-python list.py          # affiche le contenu de la base (--full pour le texte complet)
-python clean.py         # vide la base
-python api.py           # lance l'API sur http://127.0.0.1:8000
+## Connexion PostgreSQL et ingestion
+
+Dans le même terminal PowerShell, définissez la chaîne de connexion en remplaçant
+les valeurs par celles de votre installation. Ne commitez pas cette valeur :
+
+```powershell
+$env:DATABASE_URL = "postgresql://UTILISATEUR:MOT_DE_PASSE@localhost:5432/NOM_BASE"
+python ingest.py
 ```
 
-Swagger : http://127.0.0.1:8000/docs
+L'ingestion lit les tables du schéma décrit par le projet et indexe les
+documents dans `chroma_db/`. Elle est relançable : les documents existants sont
+mis à jour et les documents supprimés de PostgreSQL sont retirés de l'index.
+Les embeddings sont calculés et enregistrés par lots de 32 documents, avec
+affichage de la progression.
+Les données dont `is_synthetic` vaut `TRUE` restent marquées comme synthétiques
+et l'API les signale dans ses sources.
 
-Pour recharger après modification de l'histoire : `python clean.py` puis `python ingest.py`.
+Pour repartir de zéro, supprimez la collection vectorielle puis relancez
+l'ingestion :
 
-## Endpoints
+```powershell
+python clean.py
+python ingest.py
+```
 
-| Méthode | Route     | Rôle                                                   |
-|---------|-----------|--------------------------------------------------------|
-| GET     | `/health` | Nombre de morceaux en base et modèles utilisés         |
-| POST    | `/search` | Passages retrouvés seulement (sans LLM), pour déboguer |
-| POST    | `/ask`    | Réponse du LLM + passages sources                      |
+## Lancer l'API
 
-Corps de requête : `{"question": "Comment s'appelle le cheval de Léo ?", "top_k": 4}`
+```powershell
+python api.py
+```
 
-## Configuration (variables d'environnement)
+Documentation interactive : http://127.0.0.1:8000/docs
 
-| Variable      | Défaut              |
-|---------------|---------------------|
-| `LLM_MODEL`   | `qwen2.5:1.5b`        |
-| `EMBED_MODEL` | `nomic-embed-text`  |
-| `OLLAMA_HOST` | `http://localhost:11434` |
-| `CHROMA_DIR`  | `./chroma_db`       |
-| `STORY_PATH`  | `./story.txt`       |
-| `CHUNK_SIZE`  | `800` (caractères)  |
-| `TOP_K`       | `4`                 |
+### Endpoints
 
-Si vous changez `EMBED_MODEL`, relancez `clean.py` puis `ingest.py` : les vecteurs
-de deux modèles différents ne sont pas compatibles.
+| Méthode | Route     | Rôle |
+|---------|-----------|------|
+| GET     | `/health` | Nombre de documents indexés et modèles configurés |
+| POST    | `/search` | Sources retrouvées sans génération |
+| POST    | `/ask`    | Réponse du LLM avec les sources |
+
+Exemple de requête :
+
+```json
+{"question": "Quels parfums floraux conviennent au marché français ?", "top_k": 4}
+```
+
+Chaque source retourne son `source_type`, son `source_id`, le texte indexé, un
+score de similarité et l'indicateur `is_synthetic`.
+
+## Configuration
+
+| Variable       | Défaut                  | Rôle |
+|----------------|-------------------------|------|
+| `DATABASE_URL` | non défini              | Connexion PostgreSQL requise par l'ingestion |
+| `LLM_MODEL`    | `qwen2.5:1.5b`          | Modèle de génération Ollama |
+| `EMBED_MODEL`  | `nomic-embed-text`      | Modèle d'embeddings Ollama |
+| `OLLAMA_HOST`  | `http://localhost:11434`| Adresse d'Ollama |
+| `CHROMA_DIR`   | `./chroma_db`           | Dossier de l'index ChromaDB |
+| `COLLECTION_NAME` | `fragrance`          | Collection ChromaDB |
+| `CHUNK_SIZE`   | `800`                   | Taille maximale d'un document indexé, en caractères |
+| `TOP_K`        | `4`                     | Nombre de sources retournées par défaut |
+
+Si vous changez de modèle d'embeddings, supprimez l'ancienne collection puis
+réingérez les données : les vecteurs de modèles différents ne sont pas
+compatibles.

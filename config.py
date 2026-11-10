@@ -10,14 +10,15 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:1.5b")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 
+# PostgreSQL (la chaîne de connexion est fournie localement)
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
 # Base vectorielle (ChromaDB persistante sur disque)
 CHROMA_DIR = Path(os.getenv("CHROMA_DIR", BASE_DIR / "chroma_db"))
-COLLECTION_NAME = os.getenv("COLLECTION_NAME", "story")
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "fragrance")
 
-# Source et découpage
-STORY_PATH = Path(os.getenv("STORY_PATH", BASE_DIR / "story.txt"))
+# Découpage des documents indexés
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "800"))  # en caractères
-CHUNK_OVERLAP_PARAGRAPHS = int(os.getenv("CHUNK_OVERLAP_PARAGRAPHS", "1"))
 
 # Recherche
 TOP_K = int(os.getenv("TOP_K", "4"))
