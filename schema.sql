@@ -207,8 +207,27 @@ CREATE TABLE IF NOT EXISTS vocabularies (
     PRIMARY KEY (type, valeur)
 );
 
+CREATE TABLE IF NOT EXISTS food_aromas (
+    aroma_id TEXT PRIMARY KEY,
+    nom TEXT NOT NULL,
+    famille TEXT NOT NULL,
+    notes TEXT,
+    applications TEXT[] NOT NULL DEFAULT '{}',
+    sucrosite NUMERIC(3, 2) CHECK (
+        sucrosite IS NULL OR sucrosite BETWEEN 1 AND 5
+    ),
+    tenue_chaleur TEXT,
+    certifications TEXT[],
+    prix_indicatif_eur_kg NUMERIC(12, 2),
+    delai_jours INTEGER,
+    volume_minimum_kg NUMERIC(12, 2),
+    is_synthetic BOOLEAN NOT NULL DEFAULT FALSE,
+    source_information TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_evaluations_brief_id ON evaluations(brief_id);
 CREATE INDEX IF NOT EXISTS idx_evaluations_fragrance_id ON evaluations(fragrance_id);
 CREATE INDEX IF NOT EXISTS idx_briefs_completude ON briefs(completude);
 CREATE INDEX IF NOT EXISTS idx_fragrance_categories_categorie
     ON fragrance_categories(categorie);
+CREATE INDEX IF NOT EXISTS idx_food_aromas_famille ON food_aromas(famille);

@@ -16,10 +16,12 @@ calcule les embeddings et génère les réponses.
 - `list.py` affiche les documents indexés ; `clean.py` supprime la collection
   ChromaDB.
 
-Les briefs, parfums, tendances, règles de marché, dosages, champs de brief,
-évaluations, taxonomie des besoins et vocabulaires sont indexés. Les tables
-relationnelles associées (catégories, arômes, facettes, certifications et marchés)
-sont réunies dans le document de leur entité.
+Les briefs, parfums, arômes alimentaires (`food_aromas`), tendances, règles de
+marché, dosages, champs de brief, évaluations, taxonomie des besoins et
+vocabulaires sont indexés. Les tables relationnelles associées (catégories,
+arômes de parfums, facettes, certifications et marchés) sont réunies dans le
+document de leur entité. Les arômes alimentaires sont indexés comme des entités
+autonomes, avec leurs caractéristiques et leur indicateur `is_synthetic`.
 
 La recherche vectorielle sert à retrouver des informations sémantiquement
 pertinentes. Pour une sélection nécessitant des filtres exacts (par exemple une
@@ -70,6 +72,20 @@ Les embeddings sont calculés et enregistrés par lots de 32 documents, avec
 affichage de la progression.
 Les données dont `is_synthetic` vaut `TRUE` restent marquées comme synthétiques
 et l'API les signale dans ses sources.
+
+Pour exporter les valeurs observées de chaque colonne de `food_aromas` dans un
+fichier JSON partageable avec le back, configurez `DATABASE_URL` dans PowerShell
+puis lancez :
+
+```powershell
+& ".\.venv\Scripts\python.exe" export_aroma_criteria.py
+```
+
+Le script génère `aroma_criteria.json` à partir de la table courante. Pour les
+critères catégoriels, les valeurs exportées sont les candidates observées dans
+les données ; faites-les valider par l'équipe avant de les considérer comme des
+listes fermées. Les colonnes descriptives et numériques listent leurs valeurs
+actuelles, sans prétendre limiter toutes les valeurs futures.
 
 Pour repartir de zéro, supprimez la collection vectorielle puis relancez
 l'ingestion :

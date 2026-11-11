@@ -30,6 +30,15 @@ ENTITY_QUERIES = {
                 FROM fragrance_markets WHERE fragrance_id = f.fragrance_id) AS markets
         FROM fragrances f
     """,
+    "food_aroma": """
+        SELECT aroma_id AS source_id, nom, famille, notes,
+               array_to_string(applications, ', ') AS applications,
+               sucrosite, tenue_chaleur,
+               array_to_string(certifications, ', ') AS certifications,
+               prix_indicatif_eur_kg, delai_jours, volume_minimum_kg,
+               is_synthetic, source_information
+        FROM food_aromas
+    """,
     "trend": """
         SELECT t.tendance_id AS source_id, t.nom, t.theme, t.marche, t.croissance,
                t.indice_momentum_0_100, t.periode, t.source,
@@ -101,6 +110,15 @@ ENTITY_QUERIES = {
 
 FIELD_LABELS = {
     "nom": "Nom",
+    "famille": "Famille d'arôme",
+    "notes": "Notes",
+    "applications": "Applications alimentaires",
+    "sucrosite": "Sucrosité (échelle de 1 à 5)",
+    "tenue_chaleur": "Tenue à la chaleur",
+    "prix_indicatif_eur_kg": "Prix indicatif (€/kg)",
+    "delai_jours": "Délai (jours)",
+    "volume_minimum_kg": "Volume minimum (kg)",
+    "source_information": "Source de l'information",
     "famille_olfactive": "Famille olfactive",
     "cible_genre": "Cible",
     "origine_naturelle_pct": "Origine naturelle (%)",
